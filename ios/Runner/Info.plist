@@ -45,5 +45,7 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Geo Attend needs your location to set the office and check if you are within range to mark attendance.</string>
 </dict>
 </plist>
