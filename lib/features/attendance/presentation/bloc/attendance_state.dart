@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 
+import '../../../../core/constants.dart';
 import '../../domain/entities/office_location.dart';
 
 class AttendanceState extends Equatable {
@@ -9,6 +10,7 @@ class AttendanceState extends Equatable {
     this.errorMessage,
     this.distanceMeters,
     this.distanceError,
+    this.attendanceMarkedAt,
   });
 
   final OfficeLocation? savedOffice;
@@ -16,6 +18,11 @@ class AttendanceState extends Equatable {
   final String? errorMessage;
   final double? distanceMeters;
   final String? distanceError;
+  final DateTime? attendanceMarkedAt;
+
+  bool get canMarkAttendance =>
+      distanceMeters != null &&
+      distanceMeters! <= AttendanceConstants.attendanceRadiusMeters;
 
   AttendanceState copyWith({
     OfficeLocation? savedOffice,
@@ -23,6 +30,7 @@ class AttendanceState extends Equatable {
     String? errorMessage,
     double? distanceMeters,
     String? distanceError,
+    DateTime? attendanceMarkedAt,
   }) {
     return AttendanceState(
       savedOffice: savedOffice ?? this.savedOffice,
@@ -30,10 +38,17 @@ class AttendanceState extends Equatable {
       errorMessage: errorMessage,
       distanceMeters: distanceMeters ?? this.distanceMeters,
       distanceError: distanceError,
+      attendanceMarkedAt: attendanceMarkedAt ?? this.attendanceMarkedAt,
     );
   }
 
   @override
-  List<Object?> get props =>
-      [savedOffice, isLoading, errorMessage, distanceMeters, distanceError];
+  List<Object?> get props => [
+        savedOffice,
+        isLoading,
+        errorMessage,
+        distanceMeters,
+        distanceError,
+        attendanceMarkedAt,
+      ];
 }

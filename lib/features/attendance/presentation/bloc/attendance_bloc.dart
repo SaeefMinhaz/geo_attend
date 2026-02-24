@@ -19,6 +19,7 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
         super(const AttendanceState()) {
     on<LoadSavedOffice>(_onLoadSavedOffice);
     on<SetOfficeLocationRequested>(_onSetOfficeLocationRequested);
+    on<MarkAttendanceRequested>(_onMarkAttendanceRequested);
   }
 
   final OfficeLocationRepository _officeRepository;
@@ -64,7 +65,11 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
   ) async {
     emit(state.copyWith(errorMessage: null));
     final office = await _officeRepository.getOfficeLocation();
-    emit(state.copyWith(savedOffice: office));
+    final lastAttendance = await _officeRepository.getLastAttendanceAt();
+    emit(state.copyWith(
+      savedOffice: office,
+      attendanceMarkedAt: lastAttendance,
+    ));
     if (office != null) _startDistanceUpdates(emit, office);
   }
 
@@ -93,5 +98,15 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
         errorMessage: 'Something went wrong. Please try again.',
       ));
     }
+  }
+
+  Future<void> _onMarkAttendanceRequested(
+    MarkAttendanceRequested event,
+    Emitter<AttendanceState> emit,
+  ) async {
+    if (!state.canMarkAttendance) return;
+    final now = DateTime.now();
+    await _officeRepository.setLastAttendanceAt(now);
+    emit(state.copyWith(attendanceMarkedAt: now));
   }
 }

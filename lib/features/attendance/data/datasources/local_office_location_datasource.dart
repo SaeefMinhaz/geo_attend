@@ -20,4 +20,17 @@ class LocalOfficeLocationDataSource {
     if (lat == null || lng == null) return null;
     return OfficeLocation(latitude: lat, longitude: lng);
   }
+
+  Future<void> setLastAttendanceAt(DateTime time) async {
+    await _prefs.setString(
+      AttendanceConstants.keyLastAttendanceAt,
+      time.toIso8601String(),
+    );
+  }
+
+  Future<DateTime?> getLastAttendanceAt() async {
+    final s = _prefs.getString(AttendanceConstants.keyLastAttendanceAt);
+    if (s == null) return null;
+    return DateTime.tryParse(s);
+  }
 }

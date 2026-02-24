@@ -5,6 +5,11 @@ import '../bloc/attendance_bloc.dart';
 import '../bloc/attendance_event.dart';
 import '../bloc/attendance_state.dart';
 
+String _formatDateTime(DateTime dt) {
+  return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} '
+      '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+}
+
 /// Main screen for setting office location and marking attendance.
 class AttendanceScreen extends StatelessWidget {
   const AttendanceScreen({super.key});
@@ -31,7 +36,9 @@ class AttendanceScreen extends StatelessWidget {
             prev.savedOffice != curr.savedOffice ||
             prev.isLoading != curr.isLoading ||
             prev.distanceMeters != curr.distanceMeters ||
-            prev.distanceError != curr.distanceError,
+            prev.distanceError != curr.distanceError ||
+            prev.attendanceMarkedAt != curr.attendanceMarkedAt ||
+            prev.canMarkAttendance != curr.canMarkAttendance,
         builder: (context, state) {
           String distanceText;
           if (state.savedOffice == null) {
@@ -90,9 +97,37 @@ class AttendanceScreen extends StatelessWidget {
                         )
                       : const Icon(Icons.location_on),
                   label: Text(
-                    state.isLoading ? 'Getting location…' : 'Set Office Location',
+                    state.isLoading
+                        ? 'Getting location…'
+                        : 'Set Office Location',
                   ),
                 ),
+                const SizedBox(height: 24),
+                FilledButton.icon(
+                  onPressed: state.canMarkAttendance
+                      ? () => context.read<AttendanceBloc>().add(
+                            const MarkAttendanceRequested(),
+                          )
+                      : null,
+                  icon: const Icon(Icons.check_circle_outline),
+                  label: const Text('Mark Attendance'),
+                ),
+                if (!state.canMarkAttendance && state.savedOffice != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Move within 50 m of the office to enable.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+                if (state.attendanceMarkedAt != null) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    'Last marked: ${_formatDateTime(state.attendanceMarkedAt!)}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                    textAlign: TextAlign.center,
+                  ),
+                ],
                 const SizedBox(height: 16),
               ],
             ),

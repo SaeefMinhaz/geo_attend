@@ -16,3 +16,8 @@ final class LoadSavedOffice extends AttendanceEvent {
 final class SetOfficeLocationRequested extends AttendanceEvent {
   const SetOfficeLocationRequested();
 }
+
+/// User tapped "Mark Attendance" (only valid when within 50 m).
+final class MarkAttendanceRequested extends AttendanceEvent {
+  const MarkAttendanceRequested();
+}
