@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../bloc/attendance_bloc.dart';
 import '../bloc/attendance_event.dart';
@@ -24,10 +25,19 @@ class AttendanceScreen extends StatelessWidget {
       body: BlocConsumer<AttendanceBloc, AttendanceState>(
         listener: (context, state) {
           if (state.errorMessage != null) {
+            final msg = state.errorMessage!;
+            final isPermissionRelated = msg.toLowerCase().contains('permission') ||
+                msg.toLowerCase().contains('settings');
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(state.errorMessage!),
+                content: Text(msg),
                 backgroundColor: Theme.of(context).colorScheme.error,
+                action: isPermissionRelated
+                    ? SnackBarAction(
+                        label: 'Settings',
+                        onPressed: () => Geolocator.openAppSettings(),
+                      )
+                    : null,
               ),
             );
           }
@@ -116,6 +126,14 @@ class AttendanceScreen extends StatelessWidget {
                   const SizedBox(height: 8),
                   Text(
                     'Move within 50 m of the office to enable.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+                if (!state.canMarkAttendance && state.savedOffice == null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Set office location first.',
                     style: Theme.of(context).textTheme.bodySmall,
                     textAlign: TextAlign.center,
                   ),

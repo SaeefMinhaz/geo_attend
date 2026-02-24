@@ -24,13 +24,15 @@ class LocationService {
   Future<OfficeLocation> getCurrentPosition() async {
     final serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      throw LocationServiceException('Location services are turned off.');
+      throw LocationServiceException(
+        'Please turn on location services in your device settings.',
+      );
     }
 
     final permitted = await _checkPermission();
     if (!permitted) {
       throw LocationServiceException(
-        'Location permission was denied. You can enable it in settings.',
+        'Location permission is required to set office and mark attendance. You can enable it in settings.',
       );
     }
 
@@ -51,7 +53,7 @@ class LocationService {
       throw LocationServiceException(
         isDenied
             ? 'Location permission was denied.'
-            : 'Could not get location. Try again in an open area.',
+            : 'Could not get location. Try again in an open area with a clear view of the sky.',
       );
     }
   }
