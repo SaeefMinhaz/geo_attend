@@ -55,6 +55,14 @@ class LocationService {
       );
     }
   }
+
+  /// Stream of position updates for real-time distance. Check permission before using.
+  Stream<Position> get positionStream => Geolocator.getPositionStream(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium,
+          distanceFilter: 10,
+        ),
+      );
 }
 
 class LocationServiceException implements Exception {

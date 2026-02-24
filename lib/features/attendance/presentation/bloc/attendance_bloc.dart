@@ -1,6 +1,11 @@
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'dart:async';
 
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:geolocator/geolocator.dart';
+
+import '../../../../core/utils/geo_utils.dart';
 import '../../data/services/location_service.dart';
+import '../../domain/entities/office_location.dart';
 import '../../domain/repositories/office_location_repository.dart';
 import 'attendance_event.dart';
 import 'attendance_state.dart';
@@ -18,6 +23,40 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
 
   final OfficeLocationRepository _officeRepository;
   final LocationService _locationService;
+  StreamSubscription<Position>? _distanceSubscription;
+
+  @override
+  Future<void> close() {
+    _distanceSubscription?.cancel();
+    return super.close();
+  }
+
+  void _startDistanceUpdates(
+    Emitter<AttendanceState> emit,
+    OfficeLocation office,
+  ) {
+    _distanceSubscription?.cancel();
+    _distanceSubscription = _locationService.positionStream.listen(
+      (position) {
+        final meters = distanceInMeters(
+          office.latitude,
+          office.longitude,
+          position.latitude,
+          position.longitude,
+        );
+        emit(state.copyWith(
+          distanceMeters: meters,
+          distanceError: null,
+        ));
+      },
+      onError: (_) {
+        emit(state.copyWith(
+          distanceError: 'Distance unavailable. Check that location is on.',
+          distanceMeters: null,
+        ));
+      },
+    );
+  }
 
   Future<void> _onLoadSavedOffice(
     LoadSavedOffice event,
@@ -26,6 +65,7 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
     emit(state.copyWith(errorMessage: null));
     final office = await _officeRepository.getOfficeLocation();
     emit(state.copyWith(savedOffice: office));
+    if (office != null) _startDistanceUpdates(emit, office);
   }
 
   Future<void> _onSetOfficeLocationRequested(
@@ -41,6 +81,7 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
         isLoading: false,
         errorMessage: null,
       ));
+      _startDistanceUpdates(emit, position);
     } on LocationServiceException catch (e) {
       emit(state.copyWith(
         isLoading: false,
