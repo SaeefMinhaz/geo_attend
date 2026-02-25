@@ -164,8 +164,8 @@ lib/
 This project was developed with assistance from generative AI as a **coding partner**, not as a full code generator.
 
 - **Project bootstrapping & structure**: I used AI to discuss and validate the initial project structure (feature folders, BLoC layers, shared widgets) and to cross‑check that the architecture followed common clean/BLoC best practices.
-- **Generic UI flows**: For standard UI patterns (e.g., sliver compositions, tab layouts, reusable widgets) I asked AI for example patterns and then adapted the code to match the provided ICC T20 designs and my own coding style.
-- **Technical implementation guidance**: For more complex pieces (state management wiring, scroll behaviors, animations, responsiveness), I used AI to get guidelines, trade‑offs, and API reminders, then implemented and refined the final solution myself, validating that it aligned with Flutter and BLoC best practices.
+- **Generic UI flows**: For standard UI patterns I asked AI for example patterns and then adapted the code to match my own coding style.
+- **Technical implementation guidance**: For more complex pieces (state management wiring, responsiveness), I used AI to get guidelines, trade‑offs, and API reminders, then implemented and refined the final solution myself, validating that it aligned with Flutter and BLoC best practices.
 - **Human review & ownership**: All architectural decisions, implementation details, and final code were reviewed, adjusted, and approved by me before being committed to the repository.
 
 ---
@@ -182,7 +182,7 @@ This project was developed with assistance from generative AI as a **coding part
 1. **Clone the repository**
 
    ```bash
-   git clone <https://github.com/SaeefMinhaz/geo_attend>.git
+   git clone <https://github.com/SaeefMinhaz/geo_attend.git>
    cd geo_attend
    ```
 
