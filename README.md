@@ -1,28 +1,74 @@
-# Geo Attend — Technical README
+# Geo Attend – Geo‑Fenced Attendance System
 
-A Flutter app that lets you set an office location and mark attendance only when you’re within 50 meters. This doc describes how it’s built: requirements, Clean Architecture, BLoC, and tests.
+A simple Flutter app that demonstrates a **geo‑fenced attendance flow**:
 
----
+- The user sets an **office location** using the current GPS position.
+- The app continuously tracks distance from that saved point.
+- The user can only **mark attendance** when they are **within 50 meters** of the office.
 
-## What the app does (requirements)
-
-- **Set office location** — One tap fetches GPS, saves coordinates locally (SharedPreferences).
-- **Mark attendance** — Button is enabled only when your current location is within a **50 m** radius of the saved office.
-- **Live distance** — Shows text like “You are 120 m away from the office” and updates as you move.
-- **Errors** — Handles permission denied and location-off with clear messages and an option to open app settings.
-
-**Tech choices:**
-
-- **State management:** BLoC (flutter_bloc).
-- **Architecture:** Clean Architecture (domain → data → presentation).
-- **Local storage:** SharedPreferences.
-- **Location:** geolocator (permissions + current position + position stream).
+This is implemented using **Clean Architecture + BLoC**, with local storage and a live GPS stream.
 
 ---
 
-## Clean Architecture overview
+## 1. Project Title and Description
 
-The app is split into three layers. The UI talks only to the BLoC; the BLoC talks to the domain (repository interface) and to a location service; the data layer implements the repository and talks to SharedPreferences and the device.
+- **Title:** Geo Attend – Geo‑Fenced Attendance System  
+- **Business requirement:**
+  - **Setup Phase:**  
+    - `Set Office Location` button reads the current GPS location and saves it locally as the office coordinate.
+  - **Validation Phase:**  
+    - `Mark Attendance` button is only enabled if the current location is within **50 meters** of the saved office.
+  - **Feedback:**  
+    - A live distance indicator shows text like **“You are 120m away from the office.”**
+
+The whole flow happens on a single `AttendanceScreen`.
+
+---
+
+## 2. Technical Stack
+
+**Framework / language**
+
+- **Flutter** (Dart 3.8.x)
+
+**State management**
+
+- **BLoC pattern** via:
+  - `flutter_bloc`
+  - `bloc`
+
+**Storage / device features**
+
+- **SharedPreferences** – persists:
+  - Office latitude / longitude
+  - Last attendance timestamp
+- **geolocator** – handles:
+  - Location permissions
+  - `getCurrentPosition()` for initial office set
+  - `getPositionStream()` for the live distance indicator
+
+**Utilities**
+
+- **equatable** – clean value equality for BLoC events and state.
+
+> Note: There is no HTTP / networking in this project; all logic is local (GPS + local storage).
+
+---
+
+## 3. Project Structure / Approaches
+
+### Architectural approach
+
+The app follows a small **Clean Architecture** variant with a **BLoC presentation layer**:
+
+- **Presentation layer (Flutter + BLoC)**  
+  - Widgets and BLoC classes only talk to abstractions and simple services.
+- **Domain layer (pure Dart)**  
+  - Entities and repository interfaces define the core rules.
+- **Data layer (platform integration)**  
+  - Concrete repository implementation, SharedPreferences datasource, and Geolocator‑based `LocationService`.
+
+High‑level diagram:
 
 ```mermaid
 flowchart TB
@@ -51,17 +97,37 @@ flowchart TB
   LocService -->|GPS| Geolocator[Geolocator]
 ```
 
-- **Presentation** — One screen and one BLoC. The screen dispatches events and rebuilds from state.
-- **Domain** — One entity (`OfficeLocation`) and one repository contract. No Flutter or platform imports.
-- **Data** — Repository implementation, a local datasource (SharedPreferences), and a location service that wraps Geolocator.
+### Main BLoC and flows
 
-Dependency direction: presentation → domain ← data. The BLoC depends on the repository *interface* and on `LocationService`; the concrete repository and location implementation live in the data layer.
+- **`AttendanceBloc`** (single BLoC for this feature)
+  - **Key events**
+    - `LoadSavedOffice` – on app start:
+      - Loads office location and last attendance from the repository.
+      - If an office is found, starts the GPS position stream.
+    - `SetOfficeLocationRequested` – when the user taps **Set Office Location**:
+      - Calls `LocationService.getCurrentPosition()`.
+      - Stores the coordinates via `OfficeLocationRepository.setOfficeLocation`.
+      - Starts listening to the position stream for live distance updates.
+    - `MarkAttendanceRequested` – when the user taps **Mark Attendance**:
+      - Only acts if `state.canMarkAttendance` is `true`.
+      - Stores the current time via `setLastAttendanceAt`.
+    - `DistanceChanged` – internal event dispatched from the GPS stream:
+      - Updates `distanceMeters` in state.
+    - `DistanceError` – internal event for stream errors:
+      - Sets a friendly `distanceError` message.
+  - **State (`AttendanceState`)**
+    - `savedOffice` – the persisted office coordinates (or `null` if not set).
+    - `distanceMeters` – live distance between current location and office.
+    - `distanceError` – user‑friendly text when distance can’t be computed.
+    - `attendanceMarkedAt` – last attendance timestamp.
+    - `isLoading`, `errorMessage` – used for button loading and error snackbars.
+    - `canMarkAttendance` (derived) – `true` only when:
+      - `distanceMeters` is not null, and
+      - `distanceMeters <= 50` (from `AttendanceConstants.attendanceRadiusMeters`).
 
----
+### File‑level structure
 
-## Project structure
-
-```
+```text
 lib/
 ├── main.dart                          # App entry, DI wiring, BlocProvider
 ├── core/
@@ -89,92 +155,79 @@ lib/
             │   └── attendance_state.dart
             └── screens/
                 └── attendance_screen.dart
-
-test/
-├── widget_test.dart                           # App loads, Attendance screen visible
-├── attendance_state_test.dart                 # canMarkAttendance logic
-├── geo_utils_test.dart                        # Haversine distance
-└── local_office_location_datasource_test.dart # Save/load office and last attendance
 ```
 
 ---
 
-## Layer-by-layer
+## 4. Generative AI Usage
 
-### Domain
+This project was developed with assistance from generative AI as a **coding partner**, not as a full code generator.
 
-- **`OfficeLocation`** — Plain class: `latitude`, `longitude`, optional `savedAt`. Used as the geo-fence center and for “office set at …” in the UI.
-- **`OfficeLocationRepository`** — Abstract interface:
-  - `setOfficeLocation(OfficeLocation)`, `getOfficeLocation()`
-  - `setLastAttendanceAt(DateTime)`, `getLastAttendanceAt()`
-
-No Flutter or platform code here; only Dart and your own types. This keeps business rules and persistence contract separate from implementation.
-
-### Data
-
-- **`LocalOfficeLocationDataSource`** — Uses SharedPreferences to store/read office lat/lng and last attendance timestamp (ISO8601 string). Keys live in `AttendanceConstants`.
-- **`OfficeLocationRepositoryImpl`** — Implements `OfficeLocationRepository` by delegating to the datasource. Translates between storage format and domain entity.
-- **`LocationService`** — Wraps Geolocator: checks/requests permission, checks if location is enabled, gets current position (returns `OfficeLocation`), exposes `positionStream` for live updates. Throws `LocationServiceException` with user-facing messages so the BLoC can show them as-is.
-
-All platform and plugin usage (SharedPreferences, geolocator) is confined to this layer.
-
-### Presentation
-
-- **Events** — `LoadSavedOffice` (on startup), `SetOfficeLocationRequested` (Set Office Location tap), `MarkAttendanceRequested` (Mark Attendance tap).
-- **State** — `savedOffice`, `isLoading`, `errorMessage`, `distanceMeters`, `distanceError`, `attendanceMarkedAt`. Derived: `canMarkAttendance` = distance is not null and ≤ 50 m.
-- **AttendanceBloc** —  
-  - On `LoadSavedOffice`: loads office and last attendance from repository, then starts the distance stream if office exists.  
-  - On `SetOfficeLocationRequested`: gets position from `LocationService`, saves via repository, then starts the distance stream.  
-  - On `MarkAttendanceRequested`: if `canMarkAttendance`, saves `DateTime.now()` via repository and updates state.  
-  - Subscribes to `LocationService.positionStream` when office is set; on each position, computes distance with `distanceInMeters` and emits it; on stream error, sets `distanceError`. Cancels the subscription in `close()`.
-- **AttendanceScreen** — Single screen: distance text, office coordinates or “Office not set”, Set Office Location button (disabled while loading), Mark Attendance button (enabled only when `canMarkAttendance`), hints (“Set office location first” / “Move within 50 m…”), last marked time. Listens to state and shows error snackbars; for permission-related errors, adds a “Settings” action that opens app settings.
-
-### Core
-
-- **`AttendanceConstants`** — `attendanceRadiusMeters = 50`, and SharedPreferences keys for office lat/lng and last attendance.
-- **`geo_utils.dart`** — `distanceInMeters(lat1, lng1, lat2, lng2)` using the Haversine formula (meters). Used by the BLoC for the live distance and for the 50 m check (via state’s `canMarkAttendance`).
+- **Project bootstrapping & structure**: I used AI to discuss and validate the initial project structure (feature folders, BLoC layers, shared widgets) and to cross‑check that the architecture followed common clean/BLoC best practices.
+- **Generic UI flows**: For standard UI patterns (e.g., sliver compositions, tab layouts, reusable widgets) I asked AI for example patterns and then adapted the code to match the provided ICC T20 designs and my own coding style.
+- **Technical implementation guidance**: For more complex pieces (state management wiring, scroll behaviors, animations, responsiveness), I used AI to get guidelines, trade‑offs, and API reminders, then implemented and refined the final solution myself, validating that it aligned with Flutter and BLoC best practices.
+- **Human review & ownership**: All architectural decisions, implementation details, and final code were reviewed, adjusted, and approved by me before being committed to the repository.
 
 ---
 
-## BLoC in practice
+## 5. How to Run
 
-- **Creation** — In `main.dart`, after building the repository and `LocationService`, the app uses `BlocProvider` to create `AttendanceBloc` with those dependencies and dispatches `LoadSavedOffice` once.
-- **Flow** — User actions (e.g. tap “Set Office Location”) cause the screen to dispatch an event. The bloc handles it (async work in the repository or location service), then emits a new state. The screen rebuilds from state; listeners show snackbars for errors and, when relevant, a “Settings” action.
-- **Distance stream** — When the bloc has a saved office (after load or after setting it), it subscribes to `positionStream`. Each update is converted to a distance with `distanceInMeters` and emitted; that drives the “You are X m away” text and whether `canMarkAttendance` is true.
+### Prerequisites
 
-No business logic in the UI; the screen only maps state to widgets and maps gestures to events.
+- Flutter SDK installed and on your `PATH`.
+- Android emulator, iOS simulator, or a physical device with location services.
+
+### Steps
+
+1. **Clone the repository**
+
+   ```bash
+   git clone <https://github.com/SaeefMinhaz/geo_attend>.git
+   cd geo_attend
+   ```
+
+2. **Install dependencies**
+
+   ```bash
+   flutter pub get
+   ```
+
+3. **Run the app**
+
+   ```bash
+   flutter run
+   ```
+
+4. **Permissions**
+   - On **Android**, you’ll be prompted for **location permission**; the app declares `ACCESS_FINE_LOCATION`.
+   - On **iOS**, `NSLocationWhenInUseUsageDescription` is configured in `Info.plist`.
+
+5. **Testing**
+
+   ```bash
+   flutter test
+   ```
 
 ---
 
-## Unit tests
+## 6. Screenshots
 
-Tests live under `test/` and use `flutter_test` (and `SharedPreferences.setMockInitialValues` where needed).
+Screenshots live under `assets/screenshots/` and illustrate the full flow:
 
-| File | What it covers |
-|------|-----------------|
-| **attendance_state_test.dart** | `AttendanceState.canMarkAttendance`: false when distance is null; true when distance &lt; 50 m; false when distance &gt; 50 m. |
-| **geo_utils_test.dart** | `distanceInMeters`: ~0 for same point; ~111 m for 0.001° longitude at equator (known Haversine check). |
-| **local_office_location_datasource_test.dart** | With mock SharedPreferences: saving and loading an `OfficeLocation`; saving and loading last attendance time (rounded to seconds). |
-| **widget_test.dart** | App starts and the Attendance screen is shown (full widget pump with real repo and location service). |
+- **Initial screen**
 
-Run everything with:
+  ![Initial screen](assets/screenshots/1_init_screen.jpeg)
 
-```bash
-flutter test
-```
+- **Location permission prompt**
 
----
+  ![Location permission](assets/screenshots/2_location_permission.jpeg)
 
-## Running the app
+- **Office location set (shows coordinates and distance)**  
 
-- **Dependencies:** `flutter pub get`
-- **Run:** `flutter run` (device or simulator with location)
-- **Permissions:** Android needs `ACCESS_FINE_LOCATION`; iOS needs `NSLocationWhenInUseUsageDescription` (both are already in the project).
+  ![Office location set](assets/screenshots/3_office_location_set.jpeg)
 
-You’ll be prompted for location when you tap “Set Office Location.” After that, the distance updates in place and “Mark Attendance” enables only when you’re within 50 m of the saved office.
+- **Attendance successfully marked (button enabled within 50 m)**  
 
----
+  ![Attendance marked](assets/screenshots/4_attendance_marked.jpeg)
 
-## Summary
-
-Geo Attend is a single-feature app: one screen, one BLoC, one domain entity and repository, and a small data layer (SharedPreferences + location). Clean Architecture keeps the “where is the office and can I mark attendance?” logic in the domain and BLoC, and pushes platform details into the data layer. BLoC keeps the UI simple and testable, and the unit tests cover state rules, distance math, and persistence without touching the UI.
+These give a quick visual of the Setup Phase (setting office), Validation Phase (distance + button enabling), and the final marked‑attendance state.
