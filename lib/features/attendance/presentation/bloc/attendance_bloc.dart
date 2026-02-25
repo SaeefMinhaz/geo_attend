@@ -20,6 +20,8 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
     on<LoadSavedOffice>(_onLoadSavedOffice);
     on<SetOfficeLocationRequested>(_onSetOfficeLocationRequested);
     on<MarkAttendanceRequested>(_onMarkAttendanceRequested);
+    on<DistanceChanged>(_onDistanceChanged);
+    on<DistanceError>(_onDistanceError);
   }
 
   final OfficeLocationRepository _officeRepository;
@@ -32,10 +34,7 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
     return super.close();
   }
 
-  void _startDistanceUpdates(
-    Emitter<AttendanceState> emit,
-    OfficeLocation office,
-  ) {
+  void _startDistanceUpdates(OfficeLocation office) {
     _distanceSubscription?.cancel();
     _distanceSubscription = _locationService.positionStream.listen(
       (position) {
@@ -45,16 +44,14 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
           position.latitude,
           position.longitude,
         );
-        emit(state.copyWith(
-          distanceMeters: meters,
-          distanceError: null,
-        ));
+        add(DistanceChanged(meters));
       },
       onError: (_) {
-        emit(state.copyWith(
-          distanceError: 'Distance unavailable. Check that location is on.',
-          distanceMeters: null,
-        ));
+        add(
+          const DistanceError(
+            'Distance unavailable. Check that location is on.',
+          ),
+        );
       },
     );
   }
@@ -70,7 +67,7 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
       savedOffice: office,
       attendanceMarkedAt: lastAttendance,
     ));
-    if (office != null) _startDistanceUpdates(emit, office);
+    if (office != null) _startDistanceUpdates(office);
   }
 
   Future<void> _onSetOfficeLocationRequested(
@@ -86,7 +83,7 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
         isLoading: false,
         errorMessage: null,
       ));
-      _startDistanceUpdates(emit, position);
+      _startDistanceUpdates(position);
     } on LocationServiceException catch (e) {
       emit(state.copyWith(
         isLoading: false,
@@ -108,5 +105,29 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
     final now = DateTime.now();
     await _officeRepository.setLastAttendanceAt(now);
     emit(state.copyWith(attendanceMarkedAt: now));
+  }
+
+  void _onDistanceChanged(
+    DistanceChanged event,
+    Emitter<AttendanceState> emit,
+  ) {
+    emit(
+      state.copyWith(
+        distanceMeters: event.meters,
+        distanceError: null,
+      ),
+    );
+  }
+
+  void _onDistanceError(
+    DistanceError event,
+    Emitter<AttendanceState> emit,
+  ) {
+    emit(
+      state.copyWith(
+        distanceError: event.message,
+        distanceMeters: null,
+      ),
+    );
   }
 }
